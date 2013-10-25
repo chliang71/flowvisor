@@ -1,0 +1,9 @@
+/var/log/flowvisor/flowvisor-db.log /var/log/flowvisor/flowvisor-stderr.log {
+   weekly
+   size 1M
+   copytruncate
+   rotate 10
+   compress
+   maxage 100
+   missingok
+}
