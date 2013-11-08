@@ -19,13 +19,15 @@ import org.flowvisor.log.FVLog;
 import org.flowvisor.log.LogLevel;
 import org.flowvisor.resources.SlicerLimits;
 
+import org.flowvisor.allocator.Allocator;
+
 public class OFSwitchAcceptor implements FVEventHandler {
 	FVEventLoop pollLoop;
 
 	int backlog;
 	int listenPort;
 	ServerSocketChannel ssc;
-	List<FVClassifier> switches;
+	//List<FVClassifier> switches;
 
 	private SlicerLimits slicerLimits;
 
@@ -139,6 +141,9 @@ public class OFSwitchAcceptor implements FVEventHandler {
 			FVClassifier fvc = new FVClassifier(pollLoop, sock);
 			fvc.setSlicerLimits(this.slicerLimits);
 			fvc.init();
+			///////////////////////////////////
+			Allocator.getRunningAllocator().addNewClassifier(fvc.getSwitchName(), fvc);
+			//////////////////////////////////
 		} catch (IOException e) // ignore IOExceptions -- is this the right
 		// thing to do?
 		{

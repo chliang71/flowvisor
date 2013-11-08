@@ -9,6 +9,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.xmlrpc.webserver.WebServer;
+import org.flowvisor.allocator.Allocator;
 import org.flowvisor.api.APIServer;
 import org.flowvisor.api.JettyServer;
 import org.flowvisor.config.ConfDBHandler;
@@ -170,6 +171,9 @@ public class FlowVisor {
 
 		// init switchAcceptor
 		OFSwitchAcceptor acceptor = new OFSwitchAcceptor(pollLoop, port, 16);
+		/////////////////////////////
+		Allocator.createAllocator(pollLoop);
+		/////////////////////////////
 		acceptor.setSlicerLimits(sliceLimits);
 		handlers.add(acceptor);
 		// start XMLRPC UserAPI server; FIXME not async!

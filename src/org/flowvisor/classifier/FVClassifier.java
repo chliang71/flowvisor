@@ -16,12 +16,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.flowvisor.allocator.Allocator;
 import org.flowvisor.api.FlowTableCallback;
 import org.flowvisor.api.TopologyCallback;
 import org.flowvisor.config.ConfigError;
 import org.flowvisor.config.ConfigurationEvent;
 import org.flowvisor.config.FVConfig;
-
 import org.flowvisor.config.FlowMapChangedListener;
 import org.flowvisor.config.FlowSpaceImpl;
 import org.flowvisor.config.FlowvisorChangedListener;
@@ -29,7 +29,6 @@ import org.flowvisor.config.FlowvisorImpl;
 import org.flowvisor.config.Slice;
 import org.flowvisor.config.SwitchChangedListener;
 import org.flowvisor.config.SwitchImpl;
-
 import org.flowvisor.events.FVEvent;
 import org.flowvisor.events.FVEventHandler;
 import org.flowvisor.events.FVEventLoop;
@@ -662,6 +661,9 @@ public class FVClassifier implements FVEventHandler, FVSendMsg, FlowMapChangedLi
 			// this.switchFlowMap = FVConfig.getFlowSpaceFlowMap();
 			newSlices = FlowSpaceUtil.getSlicesByDPID(this.switchFlowMap,
 					this.switchInfo.getDatapathId());
+			////////////////////////////////////
+			Allocator.getRunningAllocator().modifySlicer(newSlices);
+			///////////////////////////////////
 		}
 		StringBuffer strbuf = new StringBuffer();
 		for (String sliceName : newSlices) {
@@ -684,6 +686,10 @@ public class FVClassifier implements FVEventHandler, FVSendMsg, FlowMapChangedLi
 					slicerMap.put(sliceName, newSlicer); // create new slicer in
 					// this same EventLoop
 					newSlicer.init(); // and start it up
+					/////////////////////////////
+					Allocator.getRunningAllocator().addNewSlicer(sliceName, newSlicer);
+					Allocator.getRunningAllocator().assignSlicerToClassifier(sliceName, this.getSwitchName());
+					/////////////////////////////
 				}
 			} 
 		}

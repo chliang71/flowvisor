@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.flowvisor.allocator.Allocator;
 import org.flowvisor.api.TopologyCallback;
 import org.flowvisor.classifier.FVClassifier;
 import org.flowvisor.classifier.FVSendMsg;
@@ -322,6 +323,17 @@ public class FVSlicer implements FVEventHandler, FVSendMsg, FlowvisorChangedList
 
 	@Override
 	public void sendMsg(OFMessage msg, FVSendMsg from) {
+		///////////////////////////////////////////
+		if(from instanceof FVClassifier) {
+			//FVLog.log(LogLevel.DEBUG, null, "###################sendMsg##################");
+			Allocator.getRunningAllocator().incMsgCount(this, msg);
+		} else if(msg.getType() == OFType.ECHO_REPLY || msg.getType() == OFType.ECHO_REQUEST){
+			//handle echo message differently, as they are implemented differently in FV...
+			Allocator.getRunningAllocator().incMsgCount(this, msg);
+		} else {
+			//FVLog.log(LogLevel.DEBUG, null, "########wrong type:" + from.getClass().getCanonicalName() + " sending###" + msg.getType());			
+		}
+		//////////////////////////////////////////
 		if (this.msgStream != null) {
 			FVLog.log(LogLevel.DEBUG, this, "send to controller: ", msg);
 			try {
@@ -572,6 +584,9 @@ public class FVSlicer implements FVEventHandler, FVSendMsg, FlowvisorChangedList
 				throw new IOException("got null from read()");
 			for (OFMessage msg : msgs) {
 				FVLog.log(LogLevel.DEBUG, this, "recv from controller: ", msg);
+				/////////////////////////////////////////////////
+				//Allocator.getRunningAllocator().incMsgCount(this, msg);
+				/////////////////////////////////////////////////
 				this.stats.increment(FVStatsType.SEND, this, msg);
 				if ((msg instanceof SanityCheckable)
 						&& (!((SanityCheckable) msg).isSane())) {
