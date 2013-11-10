@@ -87,6 +87,13 @@ public class Allocator {
 	
 	public void modifySlicer(Set<String> newSlices) {
 		//####################################
+		String ss = "slices are:==========>\n";
+		for(String s : newSlices) {
+			ss += s + "\n";
+		}
+		ss += "<==================";
+		FVLog.log(LogLevel.NOTE, null, ss);
+		//System.out.println(ss);
 	}
 	
 	
@@ -99,18 +106,35 @@ public class Allocator {
 		return ret;
 	}
 	
+	private void checkAllSlice() {
+		ArrayList<String> classifierName = new ArrayList<String>(classifierMap.keySet());
+		for (String s : classifierName) {
+			FVLog.log(LogLevel.DEBUG, null, "Check Classifier:" + s);
+			FVClassifier classifier = classifierMap.get(s);
+			if (classifier.getSwitchInfo() == null) {
+				FVLog.log(LogLevel.DEBUG, null, "Classifier " + s + " does not have switch info");
+			} else {
+				FVLog.log(LogLevel.DEBUG, null, "Classifier " + s + " flowmap change");
+				classifier.flowMapChanged(null);
+			}
+		}
+	}
+	
 	class TimerScheduler implements Runnable {
 		
 		@Override
 		public void run() {
+			int count = 1;
 			try {
 				while(true) {
 					Thread.sleep(5000);
-					System.out.println("#####Timer Scheduler Waked Up#####");
-					System.out.println(getSliceMessageStats());
+					FVLog.log(LogLevel.DEBUG, null, "#####Timer Scheduler Waked Up " + (count++) + "#####");
+					FVLog.log(LogLevel.DEBUG, null, getSliceMessageStats());					FVLog.log(LogLevel.DEBUG, null, "#####Check Slices#####");
+					checkAllSlice();
 				}
 			} catch (InterruptedException e) {
 				e.printStackTrace();
+				FVLog.log(LogLevel.DEBUG, null, "#####Allocator Interrupted#####");
 			}
 		}
 	}

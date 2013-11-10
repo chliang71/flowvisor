@@ -585,7 +585,7 @@ public class FVSlicer implements FVEventHandler, FVSendMsg, FlowvisorChangedList
 			for (OFMessage msg : msgs) {
 				FVLog.log(LogLevel.DEBUG, this, "recv from controller: ", msg);
 				/////////////////////////////////////////////////
-				//Allocator.getRunningAllocator().incMsgCount(this, msg);
+				Allocator.getRunningAllocator().incMsgCount(this, msg);
 				/////////////////////////////////////////////////
 				this.stats.increment(FVStatsType.SEND, this, msg);
 				if ((msg instanceof SanityCheckable)
