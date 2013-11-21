@@ -663,7 +663,7 @@ public class FVClassifier implements FVEventHandler, FVSendMsg, FlowMapChangedLi
 					this.switchInfo.getDatapathId());
 			////////////////////////////////////
 			FVLog.log(LogLevel.DEBUG, null, this.getDPID() + "#####Modify Slicer!!!#####" + newSlices.size());
-			Allocator.getRunningAllocator().modifySlicer(newSlices);
+			Allocator.getRunningAllocator().modifySlicer(this, newSlices);
 			///////////////////////////////////
 		}
 		StringBuffer strbuf = new StringBuffer();

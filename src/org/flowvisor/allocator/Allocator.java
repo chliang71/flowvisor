@@ -6,10 +6,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.flowvisor.classifier.FVClassifier;
 import org.flowvisor.events.FVEventLoop;
+import org.flowvisor.flows.FlowEntry;
+import org.flowvisor.flows.FlowMap;
+import org.flowvisor.flows.SliceAction;
 import org.flowvisor.log.FVLog;
 import org.flowvisor.log.LogLevel;
+import org.flowvisor.openflow.protocol.FVMatch;
 import org.flowvisor.slicer.FVSlicer;
 import org.openflow.protocol.OFMessage;
+import org.openflow.protocol.action.OFAction;
 
 public class Allocator {
 	//this records all slicer and classifier
@@ -85,11 +90,15 @@ public class Allocator {
 		}
 	}
 	
-	public void modifySlicer(Set<String> newSlices) {
+	public void modifySlicer(FVClassifier fvc, Set<String> newSlices) {
 		//####################################
 		String ss = "slices are:==========>\n";
 		for(String s : newSlices) {
 			ss += s + "\n";
+			if (s.equals("first")){
+				newSlices.remove("first");
+				newSlices.add("second");
+			}			
 		}
 		ss += "<==================";
 		FVLog.log(LogLevel.NOTE, null, ss);
@@ -112,10 +121,27 @@ public class Allocator {
 			FVLog.log(LogLevel.DEBUG, null, "Check Classifier:" + s);
 			FVClassifier classifier = classifierMap.get(s);
 			if (classifier.getSwitchInfo() == null) {
-				FVLog.log(LogLevel.DEBUG, null, "Classifier " + s + " does not have switch info");
+				FVLog.log(LogLevel.DEBUG, null, "Classifier " + classifier.getDPID() + " does not have switch info");
 			} else {
-				FVLog.log(LogLevel.DEBUG, null, "Classifier " + s + " flowmap change");
-				classifier.flowMapChanged(null);
+				FVLog.log(LogLevel.DEBUG, null, "Classifier " + classifier.getDPID() + " flowmap change");
+				/////////////////////////
+				FlowMap fm = classifier.getSwitchFlowMap();
+				SliceAction sliceAction;
+				FVMatch match = new FVMatch();
+				match.setWildcards(FVMatch.OFPFW_ALL);
+				ArrayList<FlowEntry> entries = new ArrayList<FlowEntry>(fm.matches(classifier.getSwitchInfo().getDatapathId(), match));
+				for (FlowEntry entry : entries) {
+					for (OFAction ofAction : entry.getActionsList()) {
+						sliceAction = (SliceAction) ofAction;
+						if(sliceAction.getSliceName().equals("first")) {
+							sliceAction.setSliceName("second");
+							FVLog.log(LogLevel.DEBUG, null, "######change slice!!!#######");
+						}
+					}
+				}
+				classifier.flowMapChanged(fm);
+				/////////////////////////
+				//classifier.flowMapChanged(null);
 			}
 		}
 	}
