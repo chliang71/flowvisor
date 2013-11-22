@@ -662,8 +662,12 @@ public class FVClassifier implements FVEventHandler, FVSendMsg, FlowMapChangedLi
 			newSlices = FlowSpaceUtil.getSlicesByDPID(this.switchFlowMap,
 					this.switchInfo.getDatapathId());
 			////////////////////////////////////
-			FVLog.log(LogLevel.DEBUG, null, this.getDPID() + "#####Modify Slicer!!!#####" + newSlices.size());
-			Allocator.getRunningAllocator().modifySlicer(this, newSlices);
+			if (fm != null) {
+				//fm!=null means this is called by a flowmapChange, and the only place that
+				//calls this is Allocator, which is where we want to make change.
+				FVLog.log(LogLevel.DEBUG, null, this.getDPID() + "#####Modify Slicer!!!#####" + newSlices.size());
+				Allocator.getRunningAllocator().modifySlicer(this, newSlices);
+			}
 			///////////////////////////////////
 		}
 		StringBuffer strbuf = new StringBuffer();
