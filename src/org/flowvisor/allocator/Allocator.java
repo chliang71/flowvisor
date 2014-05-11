@@ -15,7 +15,6 @@ import org.flowvisor.log.LogLevel;
 import org.flowvisor.openflow.protocol.FVMatch;
 import org.flowvisor.slicer.FVSlicer;
 import org.openflow.protocol.OFMessage;
-import org.openflow.protocol.OFType;
 import org.openflow.protocol.action.OFAction;
 
 public class Allocator {
@@ -23,90 +22,49 @@ public class Allocator {
 	//each slicer represents a controller
 	//while each classifier represents a switch
 	ConcurrentHashMap<String, FVSlicer> slicerMap;
-	ConcurrentHashMap<String, FVClassifier> classifierMap;
-	ConcurrentHashMap<String, String> sliceToClassifierMap;
+	ConcurrentHashMap<Long, FVClassifier> classifierMap;
 	ConcurrentHashMap<String, SlicerMessageStats> sliceMsgStats;
+	ConcurrentHashMap<Long, String> slicerDPIDNameMap;
 	ConcurrentHashMap<String, String> switchSliceMap;
+	
+	ConcurrentHashMap<Long, String> switchControllerMap;
+	
+	ConcurrentHashMap<Long, String> newSwitchControllerMap;
+	
 	static Allocator runningInstance = null;
 	static FVEventLoop loop;
-
-	static TimerScheduler timer;
-
-	//a stats class
-	public class SlicerMessageStats {
-		HashMap<OFType, Integer> msgCount;
-
-		public SlicerMessageStats() {
-			msgCount = new HashMap<OFType, Integer>();
-		}
-
-		public void incMessageCount(OFType type) {
-			if(!msgCount.containsKey(type)) {
-				msgCount.put(type, new Integer(1));
-			} else {
-				int curr = msgCount.get(type).intValue();
-				msgCount.put(type, new Integer(curr + 1));
-			}
-		}
-
-		@Override
-		public String toString() {
-			ArrayList<OFType> keylist = new ArrayList<OFType>(msgCount.keySet());
-			String ret = "";
-			for(OFType key : keylist) {
-				ret += key + ":" + msgCount.get(key) + '\n';
-			}
-			return ret;
-		}
-
-		public int getMessageCount(OFType type) {
-			if(!msgCount.containsKey(type))
-				return 0;
-			else 
-				return msgCount.get(type);
-		}
-		
-		public void absorb(SlicerMessageStats sms) {
-			HashMap<OFType, Integer> toAbsorb = sms.msgCount;
-			Set<OFType> keys = toAbsorb.keySet();
-			for(OFType key : keys) {
-				if(this.msgCount.containsKey(key)) {
-					int curr = this.msgCount.get(key).intValue();
-					int add = toAbsorb.get(key).intValue();
-					this.msgCount.put(key, new Integer(curr + add));
-					FVLog.log(LogLevel.DEBUG, null, "#########adding:" + curr + ":" + add);
-				} else {
-					this.msgCount.put(key, toAbsorb.get(key));
-					FVLog.log(LogLevel.DEBUG, null, "#########putting:" + toAbsorb.get(key));
-				}
-			}
-		}
-	}
-	
+	//static TimerScheduler timer;
 	//////////////////////////////
 
-	public void startTimer() {
-		timer = new TimerScheduler();
-		new Thread(timer).start();
-	}
+//	public void startTimer() {
+//		timer = new TimerScheduler();
+//		new Thread(timer).start();
+//	}
 
 	public static void createAllocator(FVEventLoop eloop) {
 		loop = eloop;
 		if(runningInstance == null) {
 			runningInstance = new Allocator();
-			runningInstance.startTimer();
+			//runningInstance.startTimer();
 		}
-
 		FVLog.log(LogLevel.DEBUG, null, "#####Create new Allocator#####");
-
 	}
 
+	public ArrayList<Long> getSwitches() {
+		ArrayList<Long> dpids = new ArrayList<Long>();
+		for(FVClassifier fvc : classifierMap.values()) {
+			dpids.add(fvc.getDPID());
+		}
+		return dpids;
+	}
+	
 	private Allocator(){
 		this.slicerMap = new ConcurrentHashMap<String, FVSlicer>();
-		this.classifierMap = new ConcurrentHashMap<String, FVClassifier>();
-		this.sliceToClassifierMap = new ConcurrentHashMap<String, String>();
+		this.classifierMap = new ConcurrentHashMap<Long, FVClassifier>();
 		this.sliceMsgStats = new ConcurrentHashMap<String, SlicerMessageStats>();
 		this.switchSliceMap = new ConcurrentHashMap<String, String>();
+		this.slicerDPIDNameMap = new ConcurrentHashMap<Long, String>();
+		this.switchControllerMap = new ConcurrentHashMap<Long, String>();
 		FVLog.log(LogLevel.DEBUG, null, "creating new Allocators");
 	}
 
@@ -115,7 +73,6 @@ public class Allocator {
 	}
 
 	public void incMsgCount(FVSlicer slicer, OFMessage msg) {
-		
 		SlicerMessageStats curSms;
 		if(!sliceMsgStats.containsKey(slicer.getName())) {
 			//new slice coming in
@@ -148,6 +105,7 @@ public class Allocator {
 			}
 		}
 		sliceMsgStats.put(slicer.getName(), curSms);
+		slicerDPIDNameMap.put(slicer.getSwitchDpid(), slicer.getName());
 	}
 
 	public void addNewSlicer(String name, FVSlicer slicer){
@@ -157,49 +115,55 @@ public class Allocator {
 		}
 	}
 
-	public void addNewClassifier(String name, FVClassifier classifier){
-		if(!classifierMap.containsKey(name)) {
-			FVLog.log(LogLevel.DEBUG, null, "#####Adding a new classifier " + name + "#####");
-			classifierMap.put(name, classifier);
+	public void addNewClassifier(Long dpid, FVClassifier classifier){
+		if(!classifierMap.containsKey(dpid)) {
+			FVLog.log(LogLevel.DEBUG, null, "#####Adding a new classifier " + dpid + "#####");
+			classifierMap.put(dpid, classifier);
 		}
 	}
 
-	public void assignSlicerToClassifier(String slicerName, String classifierId) {
-		if(!sliceToClassifierMap.containsKey(slicerName)) {
+	public void assignSlicerToClassifier(String slicerName, String classifierId, Long dpid) {
+		if(!switchControllerMap.containsKey(dpid)) {
 			FVLog.log(LogLevel.DEBUG, null, "#####Adding a new slicer to classifer entry, s:" +
 					slicerName + " c:" + classifierId + "#####");
-			sliceToClassifierMap.put(slicerName, classifierId);
+			switchControllerMap.put(dpid, slicerName);
 		}
 	}
 
+	public String getControllerBySwitch(Long dpid) {
+		for(Long tdpid : switchControllerMap.keySet()) {
+			FVLog.log(LogLevel.DEBUG, null, "-->" + tdpid + ":" + switchControllerMap.get(tdpid));
+		}
+		return switchControllerMap.get(dpid);
+	}
+	
 	public void modifySlicer(FVClassifier fvc, Set<String> newSlices) {
 		//####################################
-		String ss = "slices are:==========>\n";
-		for(String s : newSlices) {
-			ss += s + "\n";
-			if (s.equals("first")){
-				newSlices.remove("first");
-				newSlices.add("second");
-			}			
+		String ss = fvc.getDPID() + ":slices are:==========>\n";
+//		for(String s : newSlices) {
+//			ss += s + "\n";
+//			if (s.equals("first")){
+//				newSlices.remove("first");
+//				newSlices.add("second");
+//			}			
+//		}
+		String sname = newSwitchControllerMap.get(fvc.getDPID());
+		String msg = "It is supposed to be " + sname;
+		newSwitchControllerMap.remove(fvc.getDPID());
+		FVLog.log(LogLevel.DEBUG, null, msg);
+		if(newSlices.size() > 1) {
+			FVLog.log(LogLevel.DEBUG, null, "PANIC----->switch has more than 1 new slices!");
 		}
+		newSlices.clear();
+		newSlices.add(sname);
 		ss += "<==================";
 		FVLog.log(LogLevel.NOTE, null, ss);
 		//System.out.println(ss);
 	}
-
-
-	private String getSliceMessageStats() {
-		String ret = "";
-		ArrayList<String> keylist = new ArrayList<String>(sliceMsgStats.keySet());
-		for (String key : keylist) {
-			ret += "------------------>\n" + key + ":\n" + sliceMsgStats.get(key).toString();
-		}
-		return ret;
-	}
-
-	private void checkAllSlice() {
-		ArrayList<String> classifierName = new ArrayList<String>(classifierMap.keySet());
-		for (String s : classifierName) {
+	
+	public void checkAllSlice() {
+		ArrayList<Long> classifierName = new ArrayList<Long>(classifierMap.keySet());
+		for (Long s : classifierName) {
 			FVLog.log(LogLevel.DEBUG, null, "Check Classifier:" + s);
 			FVClassifier classifier = classifierMap.get(s);
 			if (classifier.getSwitchInfo() == null) {
@@ -215,36 +179,64 @@ public class Allocator {
 				for (FlowEntry entry : entries) {
 					for (OFAction ofAction : entry.getActionsList()) {
 						sliceAction = (SliceAction) ofAction;
-						if(sliceAction.getSliceName().equals("first")) {
-							sliceAction.setSliceName("second");
-							FVLog.log(LogLevel.DEBUG, null, "######change slice!!!#######");
+						String cursname = sliceAction.getSliceName();
+						FVClassifier fvc = classifierMap.get(s);
+						String newsname = newSwitchControllerMap.get(fvc.getDPID());
+						if(!cursname.equals(newsname)) {
+							String ss = "Changing slice!!!!" + cursname + "--->" + newsname;
+							FVLog.log(LogLevel.DEBUG, null, ss);
+							sliceAction.setSliceName(newsname);
 						}
 					}
 				}
+//				for (FlowEntry entry : entries) {
+//					for (OFAction ofAction : entry.getActionsList()) {
+//						sliceAction = (SliceAction) ofAction;
+//						if(sliceAction.getSliceName().equals("first")) {
+//							sliceAction.setSliceName("second");
+//							FVLog.log(LogLevel.DEBUG, null, "######change slice!!!#######");
+//						}
+//					}
+//				}
 				classifier.flowMapChanged(fm);
 				/////////////////////////
 				//classifier.flowMapChanged(null);
 			}
 		}
 	}
-
-	class TimerScheduler implements Runnable {
-
-		@Override
-		public void run() {
-			int count = 1;
-			try {
-				while(true) {
-					Thread.sleep(5000);
-					FVLog.log(LogLevel.DEBUG, null, "#####Timer Scheduler Waked Up " + (count++) + "#####");
-					FVLog.log(LogLevel.DEBUG, null, getSliceMessageStats());					FVLog.log(LogLevel.DEBUG, null, "#####Check Slices#####");
-					checkAllSlice();
-				}
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-				FVLog.log(LogLevel.DEBUG, null, "#####Allocator Interrupted#####");
-			}
-		}
+//
+//	class TimerScheduler implements Runnable {
+//
+//		@Override
+//		public void run() {
+//			int count = 1;
+//			try {
+//				while(true) {
+//					Thread.sleep(5000);
+//					FVLog.log(LogLevel.DEBUG, null, "#####Timer Scheduler Waked Up " + (count++) + "#####");
+//					FVLog.log(LogLevel.DEBUG, null, getSliceMessageStats());					FVLog.log(LogLevel.DEBUG, null, "#####Check Slices#####");
+//					checkAllSlice();
+//				}
+//			} catch (InterruptedException e) {
+//				e.printStackTrace();
+//				FVLog.log(LogLevel.DEBUG, null, "#####Allocator Interrupted#####");
+//			}
+//		}
+//	}
+	public ArrayList<String> getSliceName() {
+		ArrayList<String> nameList = new ArrayList<String>(slicerMap.keySet());
+		return nameList;
+	}
+	
+	public SlicerMessageStats getSwitchStatsByDPID(Long dpid) {
+		FVLog.log(LogLevel.DEBUG, null, "map####dpid:" + dpid);
+		String name = slicerDPIDNameMap.get(dpid);
+		FVLog.log(LogLevel.DEBUG, null, "map####name:" + name);
+		return sliceMsgStats.get(name);
+	}
+	
+	public void setNewMapping(HashMap<Long, String> map) {
+		newSwitchControllerMap = new ConcurrentHashMap<>(map);
 	}
 
 }

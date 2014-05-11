@@ -617,6 +617,9 @@ public class FVClassifier implements FVEventHandler, FVSendMsg, FlowMapChangedLi
 			 * OFStatisticsRequest stats = new OFStatisticsRequest();
 			 * stats.setStatisticType(OFStatisticsType.DESC);
 			 */
+			///////////////////////////////////
+			Allocator.getRunningAllocator().addNewClassifier(this.getDPID(), this);
+			//////////////////////////////////
 			switchName = "dpid=" + FlowSpaceUtil.dpidToString(this.getDPID());
 			FVLog.log(LogLevel.INFO, this, "identified switch as " + switchName
 					+ " on " + this.sock);
@@ -687,14 +690,14 @@ public class FVClassifier implements FVEventHandler, FVSendMsg, FlowMapChangedLi
 				FVLog.log(LogLevel.INFO, this,
 						"making new connection to slice " + sliceName);
 				FVSlicer newSlicer = new FVSlicer(this.loop, this, sliceName);
+				/////////////////////////////
+				Allocator.getRunningAllocator().addNewSlicer(sliceName, newSlicer);
+				Allocator.getRunningAllocator().assignSlicerToClassifier(sliceName, this.getSwitchName(), this.getDPID());
+				/////////////////////////////
 				if (newSlicer.isUp()) {
 					slicerMap.put(sliceName, newSlicer); // create new slicer in
 					// this same EventLoop
 					newSlicer.init(); // and start it up
-					/////////////////////////////
-					Allocator.getRunningAllocator().addNewSlicer(sliceName, newSlicer);
-					Allocator.getRunningAllocator().assignSlicerToClassifier(sliceName, this.getSwitchName());
-					/////////////////////////////
 				}
 			} 
 		}

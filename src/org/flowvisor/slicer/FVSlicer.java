@@ -402,6 +402,10 @@ public class FVSlicer implements FVEventHandler, FVSendMsg, FlowvisorChangedList
 	public String getSwitchName() {
 		return fvClassifier.getSwitchName().toString();
 	}
+	
+	public Long getSwitchDpid() {
+		return fvClassifier.getDPID();
+	}
 	///////////////////////
 
 	/*

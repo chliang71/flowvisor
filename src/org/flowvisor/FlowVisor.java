@@ -31,6 +31,7 @@ import org.flowvisor.message.FVMessageFactory;
 import org.flowvisor.ofswitch.OFSwitchAcceptor;
 import org.flowvisor.ofswitch.TopologyController;
 import org.flowvisor.resources.SlicerLimits;
+import org.flowvisor.scheduler.Scheduler;
 import org.openflow.example.cli.Option;
 import org.openflow.example.cli.Options;
 import org.openflow.example.cli.ParseException;
@@ -173,6 +174,9 @@ public class FlowVisor {
 		OFSwitchAcceptor acceptor = new OFSwitchAcceptor(pollLoop, port, 16);
 		/////////////////////////////
 		Allocator.createAllocator(pollLoop);
+		Scheduler s = new Scheduler(true, Allocator.getRunningAllocator());
+		Thread sched = new Thread(s);
+		sched.start();
 		/////////////////////////////
 		acceptor.setSlicerLimits(sliceLimits);
 		handlers.add(acceptor);
